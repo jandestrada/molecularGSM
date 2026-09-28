@@ -7162,6 +7162,25 @@ void GString::opt_iters(int max_iter, double& totalgrad, double& gradrms, double
     printf(" ol(%i): %1.2f max E: %1.1f",overlapn,overlap,emax-emin);
     if (nsplit) printf(" s");
     printf(" \n");
+    { // mepd patch: append this iteration's string (written by the main thread after
+      // the node loop, so its content does not depend on thread timing)
+      ofstream itf("scratch/iterations.xyz", ios::app);
+      itf << setprecision(17);
+      int nwritten = 0;
+      for (int n=0;n<nnmax;n++)
+      if (active[n]>-1 || active[n]==-2)
+        nwritten++;
+      itf << "ITER " << oi+1 << " NODES " << nwritten << " GRADRMS " << gradrms << endl;
+      for (int n=0;n<nnmax;n++)
+      if (active[n]>-1 || active[n]==-2)
+      {
+        itf << " " << natoms << endl << " " << V_profile[n] << endl;
+        for (int i=0;i<natoms;i++)
+          itf << "  " << anames[i] << " " << allcoords[n][3*i+0] << " " << allcoords[n][3*i+1] << " " << allcoords[n][3*i+2] << endl;
+      }
+      itf << "END_ITER " << oi+1 << endl;
+      itf.close();
+    }
     if (emax > endenergy && emax!=111.1) //don't end due to scf failure
     {
       printf(" considering early termination, emax/limit: %1.1f %1.1f \n",emax,endenergy);
