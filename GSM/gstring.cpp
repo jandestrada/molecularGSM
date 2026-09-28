@@ -3271,12 +3271,12 @@ void GString::opt_steps(double** dqa, double** ictan, int osteps, int oesteps)
     icoords[n].grad1.update_knnr();
 #endif
 
-#ifdef _OPENMP
-#if QCHEM || QCHEMSF || USE_ORCA
- #pragma omp parallel for
-#endif
-#endif
-  for (int n=n0+1;n<nnmax;n++)
+  // mepd patch: the nodes of an iteration are optimized independently, except the
+  // exact-TS node (find mode), whose step reads its neighbours (V_profile[en+-1],
+  // icoords[en-1].coords in get_eigenv_finite) and the string-wide scratch `newic`.
+  // To match the serial loop exactly, it runs alone: after the nodes before it and
+  // before the nodes after it, as in serial order.
+  auto opt_node = [&](int n)
   {
 //#ifdef _OPENMP
   if (omp_get_num_threads()>1 && active[n]>0)
@@ -3338,6 +3338,27 @@ void GString::opt_steps(double** dqa, double** ictan, int osteps, int oesteps)
       string nstr = StringTools::int2str(n,2,"0");
       V_profile[n] = icoords[n].opt_b("scratch/xyzfile.xyz"+nstr,osteps);
     } 
+  };
+  int tsn = -1;
+  if (find && TSnode>n0 && TSnode<nnmax-1) tsn = TSnode;
+  int first_end = (tsn>=0) ? tsn : nnmax;
+#ifdef _OPENMP
+#if QCHEM || QCHEMSF || USE_ORCA || USE_ASE
+ #pragma omp parallel for schedule(dynamic,1)
+#endif
+#endif
+  for (int n=n0+1;n<first_end;n++)
+    opt_node(n);
+  if (tsn>=0)
+  {
+    opt_node(tsn);
+#ifdef _OPENMP
+#if QCHEM || QCHEMSF || USE_ORCA || USE_ASE
+ #pragma omp parallel for schedule(dynamic,1)
+#endif
+#endif
+    for (int n=tsn+1;n<nnmax;n++)
+      opt_node(n);
   } //loop over opt
 
   printf("\n");
