@@ -81,14 +81,16 @@ double ASE::grads(double* coords, double* grad)
   ofstream geomfile(molname.c_str());
 //  cout << " geomfile " << molname << endl;
 
-  // print the molecule coordinate section
+  // print the molecule coordinate section (mepd patch: full double precision;
+  // the default 6 significant digits made the engine evaluate a rounded geometry)
+  geomfile << setprecision(17);
   geomfile << natoms << endl << endl;
   for(int j=0;j<natoms;j++)
   {
     geomfile << setw(2) << anames[j];
-    geomfile << setw(16)<< coords[3*j+0];
-    geomfile << setw(16)<< coords[3*j+1];
-    geomfile << setw(16)<< coords[3*j+2] << endl;
+    geomfile << " " << setw(25)<< coords[3*j+0];
+    geomfile << " " << setw(25)<< coords[3*j+1];
+    geomfile << " " << setw(25)<< coords[3*j+2] << endl;
   }
   geomfile.close();
  
